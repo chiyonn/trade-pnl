@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Menu } from "lucide-react";
 import { CategoryTags } from "@/components/CategoryTag";
 import { calendarPnlSizeClass, pnlStyle } from "@/lib/colors";
-import { t, WEEKDAY_KEYS } from "@/lib/i18n";
+import { formatMonthShort, t, WEEKDAY_KEYS } from "@/lib/i18n";
 import { formatMoney } from "@/lib/pnl";
 import type { CalendarCell, CalendarDisplay, CalendarPnlSize, CategoryOption, ColorRule, Currency, Locale } from "@/types/trade";
 
@@ -19,10 +19,13 @@ type Props = {
   categories: CategoryOption[];
   pnlSize: CalendarPnlSize;
   display: CalendarDisplay;
+  year: number;
+  month: number;
   onChangePnlSize: (size: CalendarPnlSize) => void;
   onChangeDisplay: (patch: Partial<CalendarDisplay>) => void;
   onPrev: () => void;
   onNext: () => void;
+  onJumpMonth: (year: number, month: number) => void;
   onToday: () => void;
   onSelectDate: (date: string) => void;
 };
@@ -40,17 +43,29 @@ export function CalendarView({
   display,
   onChangePnlSize,
   onChangeDisplay,
+  year,
+  month,
   onPrev,
   onNext,
+  onJumpMonth,
   onToday,
   onSelectDate,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(year);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (pickerOpen) setPickerYear(year);
+  }, [pickerOpen, year]);
 
   useEffect(() => {
     const onPointer = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target)) setMenuOpen(false);
+      if (!pickerRef.current?.contains(target)) setPickerOpen(false);
     };
     window.addEventListener("mousedown", onPointer);
     return () => window.removeEventListener("mousedown", onPointer);
@@ -69,7 +84,10 @@ export function CalendarView({
           <div ref={menuRef} className="relative">
             <button
               type="button"
-              onClick={() => setMenuOpen((current) => !current)}
+              onClick={() => {
+                setPickerOpen(false);
+                setMenuOpen((current) => !current);
+              }}
               className="rounded-md p-1.5 text-slate-600 hover:bg-slate-200"
               aria-label={t(locale, "calendarMenu")}
             >
@@ -140,7 +158,63 @@ export function CalendarView({
               </div>
             ) : null}
           </div>
-          <h2 className="text-xl font-medium text-slate-700">{title}</h2>
+          <div ref={pickerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setPickerOpen((current) => !current);
+              }}
+              aria-expanded={pickerOpen}
+              aria-label={t(locale, "pickMonth")}
+              className="rounded-md px-2 py-1 text-xl font-medium text-slate-700 hover:bg-slate-200"
+            >
+              {title}
+            </button>
+            {pickerOpen ? (
+              <div className="absolute left-0 z-30 mt-1 w-64 rounded-md border border-slate-200 bg-white p-2 shadow-lg">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <button
+                    type="button"
+                    onClick={() => setPickerYear((current) => current - 1)}
+                    className="rounded-md p-1 text-slate-500 hover:bg-slate-50"
+                    aria-label={t(locale, "prevYear")}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm font-medium text-slate-700">{pickerYear}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPickerYear((current) => current + 1)}
+                    className="rounded-md p-1 text-slate-500 hover:bg-slate-50"
+                    aria-label={t(locale, "nextYear")}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {Array.from({ length: 12 }, (_, index) => index + 1).map((nextMonth) => {
+                    const active = pickerYear === year && nextMonth === month;
+                    return (
+                      <button
+                        key={nextMonth}
+                        type="button"
+                        onClick={() => {
+                          onJumpMonth(pickerYear, nextMonth);
+                          setPickerOpen(false);
+                        }}
+                        className={`rounded-md px-2 py-2 text-sm ${
+                          active ? "bg-slate-800 text-white" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {formatMonthShort(locale, nextMonth)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <div className="flex overflow-hidden rounded-md border border-slate-300 bg-white">

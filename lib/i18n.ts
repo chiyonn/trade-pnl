@@ -48,7 +48,10 @@ const ja = {
 
   prevMonth: "前月",
   nextMonth: "翌月",
+  prevYear: "前年",
+  nextYear: "翌年",
   today: "今日",
+  pickMonth: "月を選択",
   calendarMenu: "表示設定",
   calendarDisplayTitle: "表示",
   showCategory: "項目を表示",
@@ -66,7 +69,7 @@ const ja = {
   weekdaySat: "土",
 
   yearListTitle: "年間リスト",
-  yearListHelp: "「修正後」に月末残高を入れると、翌月以降の通算はその数字から計算します。",
+  yearListHelp: "セルをダブルクリックすると損益を直接入力できます。「修正後」に月末残高を入れると、翌月以降の通算はその数字から計算します。",
   monthTotal: "月次合計",
   adjusted: "修正後",
   adjustedTitle: "修正後の月末残高（翌月の起点）",
@@ -170,7 +173,10 @@ const en: { [K in keyof typeof ja]: string } = {
 
   prevMonth: "Previous month",
   nextMonth: "Next month",
+  prevYear: "Previous year",
+  nextYear: "Next year",
   today: "Today",
+  pickMonth: "Choose month",
   calendarMenu: "Display options",
   calendarDisplayTitle: "Display",
   showCategory: "Show tags",
@@ -188,7 +194,7 @@ const en: { [K in keyof typeof ja]: string } = {
   weekdaySat: "Sat",
 
   yearListTitle: "Year list",
-  yearListHelp: "Enter a month-end balance in Adjusted to use it as the next month’s starting equity.",
+  yearListHelp: "Double-click a cell to type P&L. Enter a month-end balance in Adjusted to use it as the next month’s starting equity.",
   monthTotal: "Month total",
   adjusted: "Adjusted",
   adjustedTitle: "Adjusted month-end balance (next month start)",
@@ -270,6 +276,13 @@ export function formatMonthLabel(locale: Locale, year: number, month: number): s
     return new Date(year, month - 1, 1).toLocaleString("en-US", { month: "short", year: "numeric" });
   }
   return `${year}年${month}月`;
+}
+
+export function formatMonthShort(locale: Locale, month: number): string {
+  if (locale === "en") {
+    return new Date(2000, month - 1, 1).toLocaleString("en-US", { month: "short" });
+  }
+  return `${month}月`;
 }
 
 export const WEEKDAY_KEYS = [

@@ -80,6 +80,18 @@ export function Dashboard() {
     selectDate(todayStamp().date);
   };
 
+  const saveYearCellPnl = (date: string, profitLoss: number | null) => {
+    selectDate(date);
+    const existing = store.records.find((item) => item.date === date);
+    const memo = existing?.memo ?? "";
+    const categories = existing?.categories ?? [];
+    if (profitLoss === null && memo.trim() === "" && categories.length === 0) {
+      if (existing) store.remove(date);
+      return;
+    }
+    store.upsert({ date, profitLoss, memo, categories });
+  };
+
   return (
     <main className={`mx-auto px-4 py-6 sm:px-6 ${view === "year" ? "max-w-[1800px]" : "max-w-[1400px]"}`}>
       <header className="mb-5">
@@ -156,10 +168,16 @@ export function Dashboard() {
           categories={store.categories}
           pnlSize={store.calendarPnlSize}
           display={store.calendarDisplay}
+          year={year}
+          month={month}
           onChangePnlSize={store.setCalendarPnlSize}
           onChangeDisplay={store.setCalendarDisplay}
           onPrev={() => goMonth(-1)}
           onNext={() => goMonth(1)}
+          onJumpMonth={(nextYear, nextMonth) => {
+            setYear(nextYear);
+            setMonth(nextMonth);
+          }}
           onToday={goToday}
           onSelectDate={selectDate}
         />
@@ -174,6 +192,7 @@ export function Dashboard() {
           selectedDate={selectedDate}
           onSelectDate={selectDate}
           onChangeCarryover={store.setMonthCarryover}
+          onSavePnl={saveYearCellPnl}
         />
       ) : (
         <SettingsView

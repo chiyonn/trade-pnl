@@ -1,5 +1,3 @@
-import { Dashboard } from "@/components/Dashboard";
-
 export default function SettingsPage() {
-  return <Dashboard />;
+  return null;
 }

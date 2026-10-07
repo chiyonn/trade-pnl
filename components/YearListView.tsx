@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { pnlStyle } from "@/lib/colors";
 import { t } from "@/lib/i18n";
 import { buildYearColumns, formatMoney, toDateKey } from "@/lib/pnl";
@@ -26,6 +26,14 @@ function columnWidthCh(column: YearColumn, monthCarryovers: Record<string, numbe
   return widest + 1;
 }
 
+function parseAmount(raw: string): number | null | "invalid" {
+  const trimmed = raw.replace(/,/g, "").trim();
+  if (trimmed === "" || trimmed === "-") return null;
+  const next = Number(trimmed);
+  if (Number.isNaN(next)) return "invalid";
+  return next;
+}
+
 type Props = {
   locale: Locale;
   currency: Currency;
@@ -36,6 +44,7 @@ type Props = {
   selectedDate: string;
   onSelectDate: (date: string) => void;
   onChangeCarryover: (monthKey: string, value: number | null) => void;
+  onSavePnl: (date: string, profitLoss: number | null) => void;
 };
 
 export function YearListView({
@@ -48,6 +57,7 @@ export function YearListView({
   selectedDate,
   onSelectDate,
   onChangeCarryover,
+  onSavePnl,
 }: Props) {
   const columns = useMemo(
     () => buildYearColumns(records, monthCarryovers, baseCarryover),
@@ -57,6 +67,10 @@ export function YearListView({
   const sticky = locale === "en" ? `sticky left-0 z-10 w-[6.6rem] min-w-[6.6rem] max-w-[6.6rem] ${STICKY_LINE}` : STICKY;
   const tableWidth = `calc(${locale === "en" ? "6.6rem" : "4.6rem"} + ${widths.reduce((sum, width) => sum + width, 0)}ch)`;
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const skipBlurRef = useRef(false);
 
   useLayoutEffect(() => {
     const node = scrollerRef.current;
@@ -67,7 +81,38 @@ export function YearListView({
     toLatest();
     const frame = requestAnimationFrame(toLatest);
     return () => cancelAnimationFrame(frame);
-  }, [columns.length, tableWidth]);
+  }, [columns.length]);
+
+  useLayoutEffect(() => {
+    if (!editingDate) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [editingDate]);
+
+  const commitEdit = () => {
+    if (!editingDate) return;
+    const parsed = parseAmount(draft);
+    if (parsed === "invalid") return;
+    onSavePnl(editingDate, parsed);
+    setEditingDate(null);
+  };
+
+  const cancelEdit = () => {
+    skipBlurRef.current = true;
+    setEditingDate(null);
+  };
+
+  const onDraftKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      skipBlurRef.current = true;
+      commitEdit();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelEdit();
+    }
+  };
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -106,18 +151,48 @@ export function YearListView({
                   const invalid = day > column.days;
                   const value = invalid ? null : column.values[day - 1];
                   const date = toDateKey(column.year, column.month, day);
+                  const editing = editingDate === date;
                   return (
                     <td
                       key={`${column.key}-${day}`}
                       onClick={() => {
                         if (!invalid) onSelectDate(date);
                       }}
-                      className={`whitespace-nowrap py-1 pl-[1ch] pr-0.5 ${CELL} ${invalid ? "bg-slate-50" : "cursor-pointer"} ${
+                      onDoubleClick={() => {
+                        if (invalid) return;
+                        skipBlurRef.current = false;
+                        onSelectDate(date);
+                        setDraft(value === null ? "" : String(value));
+                        setEditingDate(date);
+                      }}
+                      className={`select-none whitespace-nowrap py-1 pl-[1ch] pr-0.5 touch-manipulation ${CELL} ${invalid ? "bg-slate-50" : "cursor-pointer"} ${
                         selectedDate === date ? "outline outline-2 outline-offset-[-2px] outline-slate-800" : ""
                       }`}
-                      style={invalid || value === null ? undefined : pnlStyle(value, colorRules)}
+                      style={invalid || value === null || editing ? undefined : pnlStyle(value, colorRules)}
                     >
-                      {invalid || value === null ? "" : formatMoney(value, currency)}
+                      {editing ? (
+                        <input
+                          ref={inputRef}
+                          type="number"
+                          step="1"
+                          value={draft}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onBlur={() => {
+                            if (skipBlurRef.current) {
+                              skipBlurRef.current = false;
+                              return;
+                            }
+                            commitEdit();
+                          }}
+                          onKeyDown={onDraftKeyDown}
+                          onClick={(event) => event.stopPropagation()}
+                          className="w-full bg-transparent py-0 text-right text-xs outline-none"
+                        />
+                      ) : invalid || value === null ? (
+                        ""
+                      ) : (
+                        formatMoney(value, currency)
+                      )}
                     </td>
                   );
                 })}
