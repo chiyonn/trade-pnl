@@ -161,20 +161,23 @@ export function usePnlStore() {
     writeSnapshot(next);
   }, []);
 
+  const applySnapshotState = useCallback((snapshot: Snapshot) => {
+    snapshotRef.current = snapshot;
+    setRecords(snapshot.records);
+    setCategoriesState(snapshot.categories);
+    setColorRulesState(snapshot.colorRules);
+    setBaseCarryoverState(snapshot.baseCarryover);
+    setMonthCarryoversState(snapshot.monthCarryovers);
+    setChartSignColorsState(snapshot.chartSignColors);
+    setCalendarPnlSizeState(snapshot.calendarPnlSize);
+    setCalendarDisplayState(snapshot.calendarDisplay);
+    setLocaleState(snapshot.locale);
+    setCurrencyState(snapshot.currency);
+  }, []);
+
   useLayoutEffect(() => {
     try {
-      const snapshot = loadSnapshot();
-      snapshotRef.current = snapshot;
-      setRecords(snapshot.records);
-      setCategoriesState(snapshot.categories);
-      setColorRulesState(snapshot.colorRules);
-      setBaseCarryoverState(snapshot.baseCarryover);
-      setMonthCarryoversState(snapshot.monthCarryovers);
-      setChartSignColorsState(snapshot.chartSignColors);
-      setCalendarPnlSizeState(snapshot.calendarPnlSize);
-      setCalendarDisplayState(snapshot.calendarDisplay);
-      setLocaleState(snapshot.locale);
-      setCurrencyState(snapshot.currency);
+      applySnapshotState(loadSnapshot());
     } catch {
       const fallback: Snapshot = {
         records: SAMPLE_RECORDS,
@@ -201,16 +204,17 @@ export function usePnlStore() {
       setHydrated(true);
     }
 
-    const flush = () => {
-      if (snapshotRef.current) writeSnapshot(snapshotRef.current);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_RECORDS && event.key !== STORAGE_SETTINGS) return;
+      try {
+        applySnapshotState(loadSnapshot());
+      } catch {
+        return;
+      }
     };
-    window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", flush);
-    return () => {
-      window.removeEventListener("pagehide", flush);
-      document.removeEventListener("visibilitychange", flush);
-    };
-  }, []);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [applySnapshotState]);
 
   const upsert = useCallback(
     (nextRecord: DailyPnl) => {
